@@ -5,7 +5,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 
-dogs_df = pd.read_csv('dog_breeds_wide_cleaned.csv')
+dogs_df = pd.read_csv('dog_breeds_wide_final.csv')
 
 dog_lookup = dogs_df['title'].unique()
 dog_breeds = dogs_df['search_term'].unique()
