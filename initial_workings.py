@@ -1,52 +1,69 @@
-import requests
-import string
 import pandas as pd
-import re
-import time
-import xml.etree.ElementTree as ET
+#from pandas_profiling import ProfileReport
+import numpy as np
 
-dogs_df = pd.read_csv('dog_breeds_wide_final.csv')
+# ProfileReport will build a report of your dataset and write it as a html file
+#profile = ProfileReport(df, title="Pandas Profiling Report", explorative=True)
 
-dog_lookup = dogs_df['title'].unique()
-dog_breeds = dogs_df['search_term'].unique()
-dog_breeds = [re.sub(r'\([^()]*\)', '', dog).strip() for dog in dog_breeds]
-dog_breeds = [re.sub(r' ', '+', dog).lower() for dog in dog_breeds]
+# We can dive into the data created by investigating the keys (column names)
+#profset = profile.description_set
+#print(profset.keys())
 
-dog_queries = ['why+does+my+' + dog for dog in dog_breeds]
+# for example we can the correlations data we can select this from profset
+#attributes = profset["correlations"]
+#print(attributes.keys())
 
-dog_df = pd.DataFrame()
-dog_df['title'] = dog_lookup
-dog_df['breed_in_query'] = dog_breeds
-dog_df['queries'] = dog_queries
+# and then select the auto correlations and write that data to csv
+#auto_correlations = attributes["auto"]
+#auto_correlations['metric'] = auto_correlations.index
+#auto_correlations.to_csv('data/correlations.csv', index = False)
+#auto_pivot = auto_correlations.pivot(index='metric',columns=(auto_correlations.columns != 'metric'),values='correlation') 
+#print(auto_pivot)
 
-unique_queries = list(set(dog_queries))
+df = pd.read_csv('data/dataset_2.csv')
+df_pivot = pd.read_csv('data/dataset_2_pivot.csv')
+corr_df = pd.read_csv('data/correlations.csv')
+corr_df_pivot = pd.read_csv('data/correlations_pivot.csv')
+types_df = pd.read_csv('data/metric_types.csv')
 
-for idx, x in enumerate(unique_queries):
-    time.sleep(5)
-    apiurl = 'https://suggestqueries.google.com/complete/search?output=toolbar&hl=en&q=' + x
-    r = requests.get(apiurl)
-    tree = ET.fromstring(r.text)
+cross_join = df_pivot[['country','metric','value']]
 
-    suggestions = []
-    query = []
-    print(idx)
-    print(x)
+world_df = df_pivot.merge(cross_join, how = 'inner', on='country')
+world_df.columns = ['country', 'iso_country_code_2018','metric','value','target_metric','target_value']
 
-    for child in tree.iter('suggestion'):
-        suggestions = suggestions + [child.attrib['data']]
-        query = query + [x]
+world_df = world_df.merge(corr_df_pivot, how = 'inner', on=['metric','target_metric'])
+world_df['correlation_absolute'] = world_df['correlation'].abs()
 
-    df = pd.DataFrame()
-    df['term'] = query
-    df['suggestion'] = suggestions
+world_df = world_df.merge(types_df, how = 'inner', on='metric')
 
-    if idx == 0:
-        suggestions_df = df
-    
-    if idx > 0:
-        suggestions_df = pd.concat([suggestions_df,df])
+types_df.columns = ['target_metric','target_metric_type','target_latest','target_metric_no_year','target_ranking']
+world_df = world_df.merge(types_df, how = 'inner', on='target_metric')
 
+world_df["metric_rank_high"] = world_df.groupby(["metric","target_metric"])["value"].rank(method="min", ascending=False)
+world_df["metric_rank_low"] = world_df.groupby(["metric","target_metric"])["value"].rank(method="min", ascending=True)
+world_df["metric_rank"] = np.where(world_df['ranking'] == 'high',world_df["metric_rank_high"],world_df["metric_rank_low"])
 
-suggestions_df.to_csv('dog_suggestions.csv', encoding='utf-8-sig', index=False)
-dog_df.to_csv('dog_names.csv', encoding='utf-8-sig', index=False)
+world_df["target_metric_rank_high"] = world_df.groupby(["target_metric","metric"])["target_value"].rank(method="min", ascending=False)
+world_df["target_metric_rank_low"] = world_df.groupby(["target_metric","metric"])["target_value"].rank(method="min", ascending=True)
+world_df["target_metric_rank"] = np.where(world_df['target_ranking'] == 'high',world_df["target_metric_rank_high"],world_df["target_metric_rank_low"])
 
+world_df = world_df.drop(columns=['metric_rank_high', 'metric_rank_low','target_metric_rank_high', 'target_metric_rank_low'])
+
+world_df = world_df.loc[world_df['metric_no_year'] != world_df['target_metric_no_year']]
+world_df = world_df.loc[world_df['metric_type'] != world_df['target_metric_type']]
+
+world_df = world_df.drop_duplicates()
+
+latest_metric_df = world_df.loc[world_df['latest'] == 1]
+latest_metric_df = latest_metric_df[["country","metric_type","metric_no_year","metric_rank"]]
+latest_metric_df.columns = ["country","metric_type","metric_no_year","latest_rank"]
+world_df = world_df.merge(latest_metric_df, how = 'inner', on=["country","metric_type","metric_no_year"])
+
+print(latest_metric_df)
+
+world_df["country_strengths_order"] = world_df.groupby(["country","metric_type"])["latest_rank"].rank(method="dense", ascending=True)
+world_df["country_weaknesses_order"] = world_df.groupby(["country","metric_type"])["latest_rank"].rank(method="dense", ascending=False)
+
+print(world_df)
+world_df = world_df.drop_duplicates()
+world_df.to_csv('data/world_df.csv', index = False)
