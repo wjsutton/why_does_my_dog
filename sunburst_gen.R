@@ -1,4 +1,5 @@
-
+# early form of Radial Heatmap Generator
+# please consult: https://github.com/wjsutton/radial_heatmap_generator
 library(dplyr)
 
 build_segment <- function(min,max,increment,inner_radius,outer_radius){
@@ -87,5 +88,5 @@ for(s in 1:length(sizes)){
 }
 sunburst_df <- rbind(large_sun,med_sun,small_sun)
 
-write.csv(sunburst_df,"test_sunburst.csv",row.names = F)
+write.csv(sunburst_df,"dashboard_data/test_sunburst.csv",row.names = F)
 
