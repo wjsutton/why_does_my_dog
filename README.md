@@ -1,5 +1,3 @@
-# why_does_my_dog
-
 <h1 style="font-weight:normal"> 
 Why Does My Dog... :dog2:
 </h1>
