@@ -110,6 +110,7 @@ The background of this visualisation was created in Figma:
 - All other text: BentonSans Regular (same as Tableau Regular)
 
 <img src='https://github.com/wjsutton/why_does_my_dog/blob/main/design/Dash_Background.png?raw=true' width="80%">
+
 ---
 
 <div style="overflow: hidden;margin: 0 10px 0 0">
